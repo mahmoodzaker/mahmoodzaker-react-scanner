@@ -538,5 +538,7 @@ export interface TokenData {
   linkTwitter?: string | null
   linkWebsite?: string | null
   dexPaid: boolean
-  migrationPc:number
+  migrationPc: number
 }
+
+export type TokenMap = Record<string, TokenData>

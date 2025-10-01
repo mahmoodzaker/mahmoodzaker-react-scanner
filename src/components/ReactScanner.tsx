@@ -10,16 +10,16 @@ import {
   ScannerResult,
   TickEventPayload,
   TokenData,
+  TokenMap,
 } from '../types/test-task-types'
 import { InfiniteTable } from './InfiniteTable'
 const PAGE_SIZE = 100
 
 export function ReactScanner() {
-  const [scanData, setScanData] = useState<TokenData[]>()
+  const [scanData, setScanData] = useState<TokenMap>()
   const [scanCurrentPage, setScanCurrentPage] = useState<number>(1)
   const [isConnected, setConnected] = useState(false)
   const [pageCount, setPageCount] = useState(1)
-  const tokenAddressMap = useRef<Record<string, TokenData>>({}) // ->token Address : ScannerResult object
 
   const extractToken = (result: ScannerResult, index: number): TokenData => {
     const {
@@ -112,6 +112,14 @@ export function ReactScanner() {
     return tokens
   }
 
+  const toMap = (data: TokenData[]): TokenMap => {
+    const map: TokenMap = {}
+    for (const tokenData of data) {
+      map[tokenData.tokenAddress] = tokenData
+    }
+    return map
+  }
+
   useEffect(() => {
     if (!isConnected) return
     setScanData(undefined)
@@ -122,7 +130,7 @@ export function ReactScanner() {
       .then((response) => {
         setPageCount(Math.ceil(response.data.totalRows / PAGE_SIZE))
         const tokens = toTokenData(response.data.pairs)
-        setScanData(tokens)
+        setScanData(toMap(tokens))
         subscribe(tokens)
       })
       .catch((error) => console.error(error))
@@ -148,21 +156,27 @@ export function ReactScanner() {
       setConnected(false)
     }
     wsCurrent.onmessage = (e) => {
+      if (!scanData) return
       const message = JSON.parse(e.data) as IncomingWebSocketMessage
       if (message.event == 'tick') {
         const data = message.data as TickEventPayload
-        const latestSwap = data.swaps.filter((swap) => !swap.isOutlier).pop()
-        const token = tokenAddressMap.current[data.pair.token]
+        const tokenKey = data.pair.token
+        const token = scanData[tokenKey]
         if (!token) return
+        const latestSwap = data.swaps.filter((swap) => !swap.isOutlier).pop()
         if (latestSwap) {
           const newPrice = parseFloat(latestSwap.priceToken1Usd)
           const newMarketCap = token.totalSupply * newPrice
           token.priceUsd = newPrice
           token.mcap = newMarketCap
+          setScanData((sd) => {
+            return { ...sd, [tokenKey]: token }
+          })
         }
       } else if (message.event == 'pair-stats') {
         const data = message.data as PairStatsMsgData
-        const token = tokenAddressMap.current[data.pair.token1Address]
+        const tokenKey = data.pair.token1Address
+        const token = scanData[tokenKey]
         if (!token) return
         token.audit.mintable = data.pair.mintAuthorityRenounced
         token.audit.freezable = data.pair.freezeAuthorityRenounced
@@ -174,10 +188,13 @@ export function ReactScanner() {
         token.linkWebsite = data.pair.linkWebsite
         token.dexPaid = data.pair.dexPaid
         token.migrationPc = Number(data.migrationProgress)
+        setScanData((sd) => {
+          return { ...sd, [tokenKey]: token }
+        })
       } else if (message.event == 'scanner-pairs') {
         unsubscribe(scanData)
         const tokens = toTokenData(message.data.results.pairs)
-        setScanData(tokens)
+        setScanData(toMap(tokens))
         subscribe(tokens)
       } else {
         console.log(message)
@@ -188,10 +205,12 @@ export function ReactScanner() {
     }
   }, [])
 
-  const unsubscribe = (result: TokenData[] | undefined) => {
+  const unsubscribe = (result: TokenMap | undefined) => {
     if (!isConnected || !result) return
     sendMessage({ event: 'unsubscribe-scanner-filter', data: params })
-    for (const token of result) {
+    const tokenKeys = Object.keys(result)
+    for (const tokenKey of tokenKeys) {
+      const token = result[tokenKey]
       const tokenData = {
         chain: token.chain,
         pair: token.pairAddress,
@@ -211,14 +230,12 @@ export function ReactScanner() {
   const subscribe = (result: TokenData[] | undefined) => {
     if (!isConnected || !result) return
     sendMessage({ event: 'scanner-filter', data: params })
-    tokenAddressMap.current = {}
     for (const token of result) {
       const tokenData = {
         chain: token.chain,
         pair: token.pairAddress,
         token: token.tokenAddress,
       }
-      tokenAddressMap.current[token.tokenAddress] = token
       sendMessage({
         event: 'subscribe-pair',
         data: tokenData,
@@ -235,14 +252,15 @@ export function ReactScanner() {
   return (
     <div className="flex h-full w-full justify-between">
       <div className="flex flex-col w-full h-full">
-        <InfiniteTable data={scanData} />
+        <InfiniteTable data={Object.values(scanData)} />
         <div>
           Page:
           <select
+            defaultValue={scanCurrentPage}
             onChange={(e) => setScanCurrentPage(parseInt(e.target.value))}
           >
             {Array.from({ length: pageCount }, (v, i) => i).map((_, index) => (
-              <option selected={index == scanCurrentPage - 1} value={index + 1}>
+              <option key={`${index}`} value={index + 1}>
                 {index + 1}
               </option>
             ))}
