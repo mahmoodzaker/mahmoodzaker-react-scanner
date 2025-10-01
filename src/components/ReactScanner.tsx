@@ -248,20 +248,30 @@ export function ReactScanner() {
 
   return (
     <div className="flex h-full w-full justify-between">
-      <div className="flex flex-col w-full h-full">
+      <div className="flex flex-col w-full h-full items-center">
         <InfiniteTable data={Object.values(scanData)} />
-        <div>
-          Page:
-          <select
-            defaultValue={scanCurrentPage}
-            onChange={(e) => setScanCurrentPage(parseInt(e.target.value))}
+        <div className="flex gap-3 p-2">
+          <button
+            className="border border-1 border-black rounded-md p-1"
+            disabled={scanCurrentPage == 1}
+            onClick={() => {
+              setScanCurrentPage((p) => p - 1)
+            }}
           >
-            {Array.from({ length: pageCount }, (v, i) => i).map((_, index) => (
-              <option key={`${index}`} value={index + 1}>
-                {index + 1}
-              </option>
-            ))}
-          </select>
+            Previous
+          </button>
+          <span className="flex h-full items-center">
+            Page: {scanCurrentPage}
+          </span>
+          <button
+            className="border border-1 border-black rounded-md p-1"
+            disabled={scanCurrentPage == pageCount}
+            onClick={() => {
+              setScanCurrentPage((p) => p + 1)
+            }}
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
