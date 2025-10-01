@@ -156,49 +156,46 @@ export function ReactScanner() {
       setConnected(false)
     }
     wsCurrent.onmessage = (e) => {
-      if (!scanData) return
-      const message = JSON.parse(e.data) as IncomingWebSocketMessage
-      if (message.event == 'tick') {
-        const data = message.data as TickEventPayload
-        const tokenKey = data.pair.token
-        const token = scanData[tokenKey]
-        if (!token) return
-        const latestSwap = data.swaps.filter((swap) => !swap.isOutlier).pop()
-        if (latestSwap) {
-          const newPrice = parseFloat(latestSwap.priceToken1Usd)
-          const newMarketCap = token.totalSupply * newPrice
-          token.priceUsd = newPrice
-          token.mcap = newMarketCap
-          setScanData((sd) => {
-            return { ...sd, [tokenKey]: token }
-          })
+      setScanData((scanData) => {
+        if (!scanData) return
+        const message = JSON.parse(e.data) as IncomingWebSocketMessage
+        if (message.event == 'tick') {
+          const data = message.data as TickEventPayload
+          const tokenKey = data.pair.token
+          const token = scanData[tokenKey]
+          if (!token) return scanData
+          const latestSwap = data.swaps.filter((swap) => !swap.isOutlier).pop()
+          if (latestSwap) {
+            const newPrice = parseFloat(latestSwap.priceToken1Usd)
+            const newMarketCap = token.totalSupply * newPrice
+            token.priceUsd = newPrice
+            token.mcap = newMarketCap
+            return { ...scanData, [tokenKey]: token }
+          }
+        } else if (message.event == 'pair-stats') {
+          const data = message.data as PairStatsMsgData
+          const tokenKey = data.pair.token1Address
+          const token = scanData[tokenKey]
+          if (!token) return scanData
+          token.audit.mintable = data.pair.mintAuthorityRenounced
+          token.audit.freezable = data.pair.freezeAuthorityRenounced
+          token.audit.honeypot = !!data.pair.token1IsHoneypot
+          token.audit.contractVerified = data.pair.isVerified
+          token.linkDiscord = data.pair.linkDiscord
+          token.linkTelegram = data.pair.linkTelegram
+          token.linkTwitter = data.pair.linkTwitter
+          token.linkWebsite = data.pair.linkWebsite
+          token.dexPaid = data.pair.dexPaid
+          token.migrationPc = Number(data.migrationProgress)
+          return { ...scanData, [tokenKey]: token }
+        } else if (message.event == 'scanner-pairs') {
+          unsubscribe(scanData)
+          const tokens = toTokenData(message.data.results.pairs)
+          subscribe(tokens)
+          return toMap(tokens)
         }
-      } else if (message.event == 'pair-stats') {
-        const data = message.data as PairStatsMsgData
-        const tokenKey = data.pair.token1Address
-        const token = scanData[tokenKey]
-        if (!token) return
-        token.audit.mintable = data.pair.mintAuthorityRenounced
-        token.audit.freezable = data.pair.freezeAuthorityRenounced
-        token.audit.honeypot = !!data.pair.token1IsHoneypot
-        token.audit.contractVerified = data.pair.isVerified
-        token.linkDiscord = data.pair.linkDiscord
-        token.linkTelegram = data.pair.linkTelegram
-        token.linkTwitter = data.pair.linkTwitter
-        token.linkWebsite = data.pair.linkWebsite
-        token.dexPaid = data.pair.dexPaid
-        token.migrationPc = Number(data.migrationProgress)
-        setScanData((sd) => {
-          return { ...sd, [tokenKey]: token }
-        })
-      } else if (message.event == 'scanner-pairs') {
-        unsubscribe(scanData)
-        const tokens = toTokenData(message.data.results.pairs)
-        setScanData(toMap(tokens))
-        subscribe(tokens)
-      } else {
-        console.log(message)
-      }
+        return scanData
+      })
     }
     return () => {
       wsCurrent.close()
