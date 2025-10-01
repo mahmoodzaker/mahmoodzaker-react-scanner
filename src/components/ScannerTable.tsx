@@ -1,28 +1,37 @@
 import axios from 'axios'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   chainIdToName,
+  FilterParams,
   GetScannerResultParams,
   IncomingWebSocketMessage,
+  NEW_TOKENS_FILTERS,
   OutgoingWebSocketMessage,
   PairStatsMsgData,
   ScannerApiResponse,
   ScannerResult,
+  SerdeRankBy,
   TickEventPayload,
   TokenData,
   TokenMap,
+  TRENDING_TOKENS_FILTERS,
 } from '../types/test-task-types'
 import { InfiniteTable } from './InfiniteTable'
 const PAGE_SIZE = 100
 
 type ScannerTableProps = {
   byAge?: boolean
+  filter: FilterParams
 }
-export function ScannerTable({ byAge }: ScannerTableProps) {
+
+export function ScannerTable({ byAge, filter }: ScannerTableProps) {
   const [scanData, setScanData] = useState<TokenMap>()
   const [scanCurrentPage, setScanCurrentPage] = useState<number>(1)
   const [isConnected, setConnected] = useState(false)
   const [pageCount, setPageCount] = useState(1)
+  const [params, setParams] = useState<GetScannerResultParams>(
+    byAge ? NEW_TOKENS_FILTERS : TRENDING_TOKENS_FILTERS,
+  )
 
   const extractToken = (result: ScannerResult, index: number): TokenData => {
     const {
@@ -108,10 +117,6 @@ export function ScannerTable({ byAge }: ScannerTableProps) {
     }
   }
 
-  const params: GetScannerResultParams = { page: scanCurrentPage }
-  if (byAge) {
-    params.rankBy = 'age'
-  }
   const toTokenData = (data: ScannerResult[]): TokenData[] => {
     const tokens: TokenData[] = []
     data.forEach((p, index) => tokens.push(extractToken(p, index)))
@@ -145,7 +150,7 @@ export function ScannerTable({ byAge }: ScannerTableProps) {
   useEffect(() => {
     if (!isConnected) return
     loadFromApi()
-  }, [scanCurrentPage])
+  }, [scanCurrentPage, params])
 
   const sendMessage = (message: OutgoingWebSocketMessage) => {
     if (!ws.current) return false
@@ -256,12 +261,62 @@ export function ScannerTable({ byAge }: ScannerTableProps) {
     }
   }
 
-  if (!scanData) return <div className='flex-1'>Loading...</div>
+  const finalShowResult: TokenData[] = useMemo(() => {
+    if (!scanData) return []
+    const data = Object.values(scanData)
+    const now = Date.now()
+    return data.filter(
+      ({
+        chain,
+        audit: { honeypot },
+        tokenCreatedTimestamp,
+        mcap = 0,
+        volumeUsd = 0,
+      }) => {
+        if (filter.chain != 'ALL' && filter.chain != chain) return false
+        if (filter.excludeHoneyPot && honeypot) return false
+        const timestamp = new Date(tokenCreatedTimestamp).getTime()
+        const age = (now - timestamp) / 1000
+        if (age > filter.maxAge) return false
+        if ((mcap || 0) < filter.minMarketCap) return false
+        if ((volumeUsd || 0) < filter.minVol) return false
+        return true
+      },
+    )
+  }, [filter, scanData])
+
+  if (!scanData) return <div className="flex-1">Loading...</div>
 
   return (
     <div className="flex h-full w-full justify-between flex-1">
       <div className="flex flex-col w-full h-full items-center">
-        <InfiniteTable data={Object.values(scanData)} />
+        <div className={byAge ? 'invisible' : ''}>
+          Sort By:{' '}
+          <select
+            defaultValue={params.rankBy}
+            onChange={(e) => {
+              setParams((p) => ({
+                ...p,
+                rankBy: e.target.value as SerdeRankBy,
+              }))
+            }}
+          >
+            <option value={'price5M'}>price5M</option>
+            <option value={'price1H'}>price1H</option>
+            <option value={'price6H'}>price6H</option>
+            <option value={'price24H'}>price24H</option>
+            <option value={'volume'}>volume</option>
+            <option value={'txns'}>txns</option>
+            <option value={'buys'}>buys</option>
+            <option value={'sells'}>sells</option>
+            <option value={'trending'}>trending</option>
+            <option value={'age'}>age</option>
+            <option value={'liquidity'}>liquidity</option>
+            <option value={'mcap'}>mcap</option>
+            <option value={'migration'}>migration</option>
+          </select>
+        </div>
+        <InfiniteTable data={finalShowResult} />
         <div className="flex gap-3 p-2">
           <button
             className="border border-1 border-black rounded-md p-1"

@@ -542,3 +542,12 @@ export interface TokenData {
 }
 
 export type TokenMap = Record<string, TokenData>
+
+export type AllChainNames = SupportedChainName | 'ALL'
+export type FilterParams = {
+  chain: AllChainNames
+  minVol: number
+  maxAge: number
+  minMarketCap: number
+  excludeHoneyPot: boolean
+}
