@@ -27,8 +27,11 @@ type ScannerTableProps = {
 export function ScannerTable({ byAge, filter }: ScannerTableProps) {
   const [scanData, setScanData] = useState<TokenMap>()
   const [scanCurrentPage, setScanCurrentPage] = useState<number>(1)
-  const [isConnected, setConnected] = useState(false)
+  const [wsStatus, setWsStatus] = useState<
+    'Connecting' | 'Disconnected' | 'Error' | 'Connected'
+  >('Connecting')
   const [pageCount, setPageCount] = useState(1)
+  const [error, setError] = useState()
   const [params, setParams] = useState<GetScannerResultParams>(
     byAge ? NEW_TOKENS_FILTERS : TRENDING_TOKENS_FILTERS,
   )
@@ -133,6 +136,7 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
   }
 
   const loadFromApi = () => {
+    setError(undefined)
     unsubscribe(scanData)
     setScanData(undefined)
     axios
@@ -145,11 +149,10 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
         setScanData(toMap(tokens))
         subscribe(tokens)
       })
-      .catch((error) => console.error(error))
+      .catch(setError)
   }
 
   useEffect(() => {
-    if (!isConnected) return
     loadFromApi()
   }, [scanCurrentPage, params])
 
@@ -163,13 +166,26 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
   useEffect(() => {
     ws.current = new WebSocket('wss://api-rs.dexcelerate.com/ws')
     const wsCurrent = ws.current
-    wsCurrent.onopen = () => {
-      setConnected(true)
+    wsCurrent.onopen = (e) => {
+      console.log('connect', e)
+      setWsStatus('Connected')
       loadFromApi()
     }
 
-    wsCurrent.onclose = () => {
-      setConnected(false)
+    wsCurrent.onerror = (e) => {
+      console.log('error', e)
+      setWsStatus((s) => {
+        if (s == 'Connecting') return s
+        return 'Error'
+      })
+    }
+
+    wsCurrent.onclose = (e) => {
+      console.log(e)
+      setWsStatus((s) => {
+        if (s == 'Connecting') return s
+        return 'Disconnected'
+      })
     }
 
     wsCurrent.onmessage = (e) => {
@@ -287,8 +303,23 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
     )
   }, [filter, scanData])
 
+  if (wsStatus == 'Error' || wsStatus == 'Disconnected')
+    return (
+      <div className="flex-1 items-center h-full w-full p-5">
+        Connection Lost, please check your internet connection
+      </div>
+    )
+  if (!!error)
+    return (
+      <div className="flex-1 items-center h-full w-full p-5">
+        Any Error occurred during loading content please check your connection
+        and{' '}
+        <button className="bg-green-100" onClick={loadFromApi}>
+          Try Again
+        </button>
+      </div>
+    )
   if (!scanData) return <div className="flex-1">Loading...</div>
-
   return (
     <div className="flex h-full w-full justify-between flex-1">
       <div className="flex flex-col w-full h-full items-center">
