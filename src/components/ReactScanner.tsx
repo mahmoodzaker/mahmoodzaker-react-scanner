@@ -120,9 +120,8 @@ export function ReactScanner() {
     return map
   }
 
-  useEffect(() => {
-    if (!isConnected) return
-    setScanData(undefined)
+  const loadFromApi = () => {
+    unsubscribe(scanData)
     axios
       .get<ScannerApiResponse>('https://api-rs.dexcelerate.com/scanner', {
         params,
@@ -134,8 +133,12 @@ export function ReactScanner() {
         subscribe(tokens)
       })
       .catch((error) => console.error(error))
-    return () => unsubscribe(scanData)
-  }, [scanCurrentPage, isConnected])
+  }
+
+  useEffect(() => {
+    if (!isConnected) return
+    loadFromApi()
+  }, [scanCurrentPage])
 
   const sendMessage = (message: OutgoingWebSocketMessage) => {
     if (!ws.current) return false
@@ -148,13 +151,14 @@ export function ReactScanner() {
     ws.current = new WebSocket('wss://api-rs.dexcelerate.com/ws')
     const wsCurrent = ws.current
     wsCurrent.onopen = () => {
-      console.log('opened')
       setConnected(true)
+      loadFromApi()
     }
+
     wsCurrent.onclose = () => {
-      console.log('ws closed')
       setConnected(false)
     }
+
     wsCurrent.onmessage = (e) => {
       setScanData((scanData) => {
         if (!scanData) return
@@ -203,9 +207,10 @@ export function ReactScanner() {
   }, [])
 
   const unsubscribe = (result: TokenMap | undefined) => {
-    if (!isConnected || !result) return
+    if (!result) return
     sendMessage({ event: 'unsubscribe-scanner-filter', data: params })
     const tokenKeys = Object.keys(result)
+
     for (const tokenKey of tokenKeys) {
       const token = result[tokenKey]
       const tokenData = {
@@ -225,7 +230,7 @@ export function ReactScanner() {
   }
 
   const subscribe = (result: TokenData[] | undefined) => {
-    if (!isConnected || !result) return
+    if (!result) return
     sendMessage({ event: 'scanner-filter', data: params })
     for (const token of result) {
       const tokenData = {
@@ -261,7 +266,7 @@ export function ReactScanner() {
             Previous
           </button>
           <span className="flex h-full items-center">
-            Page: {scanCurrentPage}
+            Page: {scanCurrentPage} from {pageCount}
           </span>
           <button
             className="border border-1 border-black rounded-md p-1"
