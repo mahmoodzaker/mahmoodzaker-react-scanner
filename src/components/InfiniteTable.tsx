@@ -1,12 +1,11 @@
 import { ReactNode } from 'react'
 import { AutoSizer, GridCellProps, Index, MultiGrid } from 'react-virtualized'
-import { chainIdToName, ScannerResult } from '../types/test-task-types'
+import { TokenData } from '../types/test-task-types'
 
 const ROW_HEIGHT = 50
 const COLUMN_WIDTH = [250, 500, 200, 300, 200, 200, 200, 200, 200]
 type InfiniteTableProps = {
-  data: ScannerResult[]
-  page: number
+  data: TokenData[]
 }
 
 function RowSpan({
@@ -26,7 +25,7 @@ function RowSpan({
   )
 }
 export function InfiniteTable(props: InfiniteTableProps) {
-  const { data, page } = props
+  const { data } = props
 
   const _cellRenderer = ({
     columnIndex,
@@ -34,6 +33,7 @@ export function InfiniteTable(props: InfiniteTableProps) {
     rowIndex,
     style,
   }: GridCellProps) => {
+    const now = Date.now()
     const row = data[rowIndex]
     return (
       <div
@@ -44,42 +44,54 @@ export function InfiniteTable(props: InfiniteTableProps) {
         {columnIndex == 0 && (
           <RowSpan columnIndex={columnIndex}>
             <span>
-              #{(page - 1) * 100 + rowIndex + 1} {row.token1Name}
+              {row.id} {row.tokenName}
             </span>
             <span>
-              {row.token0Symbol}/{row.token1Symbol} {chainIdToName(row.chainId)}
+              {row.tokenSymbol} {row.chain}
             </span>
           </RowSpan>
         )}
         {columnIndex == 1 && (
-          <RowSpan columnIndex={columnIndex}>{row.routerAddress}</RowSpan>
+          <RowSpan columnIndex={columnIndex}>{row.exchange}</RowSpan>
         )}
         {columnIndex == 2 && (
-          <RowSpan columnIndex={columnIndex}>{row.price}</RowSpan>
+          <RowSpan columnIndex={columnIndex}>{row.priceUsd}</RowSpan>
         )}
         {columnIndex == 3 && (
-          <RowSpan columnIndex={columnIndex}>market cap</RowSpan>
+          <RowSpan columnIndex={columnIndex}>{row.mcap}</RowSpan>
         )}
         {columnIndex == 4 && (
-          <RowSpan columnIndex={columnIndex}>{row.volume}</RowSpan>
+          <RowSpan columnIndex={columnIndex}>{row.volumeUsd}</RowSpan>
         )}
         {columnIndex == 5 && (
-          <RowSpan columnIndex={columnIndex}>proce chnage</RowSpan>
+          <RowSpan columnIndex={columnIndex}>
+            5m:{row.priceChangePcs['5m']}, 1h:{row.priceChangePcs['1h']}, 6h:
+            {row.priceChangePcs['6h']}, 24h:{row.priceChangePcs['24h']}
+          </RowSpan>
         )}
         {columnIndex == 6 && (
-          <RowSpan columnIndex={columnIndex}>{row.age}</RowSpan>
+          <RowSpan columnIndex={columnIndex}>
+            {(now - row.tokenCreatedTimestamp.getTime()) / 1000} sec
+          </RowSpan>
         )}
         {columnIndex == 7 && (
           <RowSpan columnIndex={columnIndex}>
-            <span>{(row.buys || 0) + (row.sells || 0)}</span>
+            <span>
+              {(row.transactions.buys || 0) + (row.transactions.sells || 0)}
+            </span>
             <span className="flex gap-1">
-              <span className="text-green-600">{row.buys || 0}</span>/
-              <span className="text-red-600">{row.sells || 0}</span>
+              <span className="text-green-600">
+                {row.transactions.buys || 0}
+              </span>
+              /
+              <span className="text-red-600">
+                {row.transactions.sells || 0}
+              </span>
             </span>
           </RowSpan>
         )}
         {columnIndex == 8 && (
-          <RowSpan columnIndex={columnIndex}>{row.liquidity}</RowSpan>
+          <RowSpan columnIndex={columnIndex}>{row.liquidity.current}</RowSpan>
         )}
       </div>
     )
