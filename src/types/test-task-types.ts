@@ -539,6 +539,7 @@ export interface TokenData {
   linkWebsite?: string | null
   dexPaid: boolean
   migrationPc: number
+  priceDirection: 'Unknown' | 'Up' | 'Down'
 }
 
 export type TokenMap = Record<string, TokenData>

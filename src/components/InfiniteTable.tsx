@@ -71,7 +71,21 @@ export function InfiniteTable(props: InfiniteTableProps) {
         )}
         {columnIndex == 2 && (
           <RowSpan columnIndex={columnIndex}>
-            {row ? row.priceUsd : <Header>Price</Header>}
+            {row ? (
+              <span
+                className={
+                  row.priceDirection == 'Up'
+                    ? 'text-green-600'
+                    : row.priceDirection == 'Down'
+                      ? 'text-red-600'
+                      : ''
+                }
+              >
+                {row.priceUsd}
+              </span>
+            ) : (
+              <Header>Price</Header>
+            )}
           </RowSpan>
         )}
         {columnIndex == 3 && (

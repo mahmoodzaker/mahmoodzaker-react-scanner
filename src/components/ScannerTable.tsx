@@ -114,6 +114,7 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
       dexPaid,
       migrationPc: 0,
       totalSupply: parseFloat(token1TotalSupplyFormatted),
+      priceDirection: 'Unknown',
     }
   }
 
@@ -184,6 +185,7 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
           if (latestSwap) {
             const newPrice = parseFloat(latestSwap.priceToken1Usd)
             const newMarketCap = token.totalSupply * newPrice
+            token.priceDirection = token.priceUsd > newPrice ? 'Down' : 'Up'
             token.priceUsd = newPrice
             token.mcap = newMarketCap
             return { ...scanData, [tokenKey]: token }
