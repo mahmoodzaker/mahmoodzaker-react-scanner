@@ -1,7 +1,3 @@
-# Getting Started with Create React App
-
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-
 ## Available Scripts
 
 In the project directory, you can run:
@@ -14,11 +10,6 @@ Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 The page will reload if you make edits.\
 You will also see any lint errors in the console.
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
 ### `npm run build`
 
 Builds the app for production to the `build` folder.\
@@ -29,18 +20,20 @@ Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `npm run eject`
+## `My Approach`
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+this application consists of these components:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### `Components`
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+- ReactScanner: ReactScanner is a component for holding tables side by side, since we are using a single client side filtering for both table in this component I implemented Filtering, when changing any filter parameter we pass filter to token tables , inside token tables we are filtering appropriate rows based on filter and showing final filtered rows, since each page has maximum 100 rows, and we are dowing filtering on page rows (not entire list) so filtering is applied to each page individually, for solving this we can fetch entire list (instead of loading page by page on demand) and then showing all rows in a single table without pagination , since I used react-virtualized library for rendering table its possible but there is some challenges because maybe record count is very high.
+- ScannerTable: this component is responsible of fetching data from api and connecting websocket and handling websocket data update, currently I connected to websocket for each table individually, we can manage this in parent class and connecting to websocket once and pass events to each ScannerTable separately, but its tricky and need more time. in this component we store a 100 row array and when users goes to other page we refetch data for that page. also using websocket we are updating rows data in real time and showing updated data in InfiniteTable, based on filtering passed form parent component we are filtering rows using a useMemo and showing filtered rows, also in this component we have a sorting section (for right table this sorting is hidden because that one always show based on age) , this filtering parameters are passed to api when user changes it and new data will be shown.
+- InfiniteTable: this is a react-virtualized table for showing a long list of rows, currently each page containing Max 100 rows but if there is more rows in each page InfiniteTable will handle it correctly, also if in future we decide to implement single page table, it will not be laggy using this table.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### `Subscribe and Unsubscribe`
 
-## Learn More
+When loading a new page from Api we unsubscribe all old token rows (previous page tokens) registered in websocket and then subscribe for new rows so always we sure we only receive data for current rows from websocket.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### `Improvements`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+for calculating available pages count we are dividing rows count by 100 (hardcoded) but maybe in future number of rows in each page changes so its better to receive page size in returned data.

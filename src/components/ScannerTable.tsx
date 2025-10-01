@@ -167,13 +167,11 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
     ws.current = new WebSocket('wss://api-rs.dexcelerate.com/ws')
     const wsCurrent = ws.current
     wsCurrent.onopen = (e) => {
-      console.log('connect', e)
       setWsStatus('Connected')
       loadFromApi()
     }
 
     wsCurrent.onerror = (e) => {
-      console.log('error', e)
       setWsStatus((s) => {
         if (s == 'Connecting') return s
         return 'Error'
@@ -181,7 +179,6 @@ export function ScannerTable({ byAge, filter }: ScannerTableProps) {
     }
 
     wsCurrent.onclose = (e) => {
-      console.log(e)
       setWsStatus((s) => {
         if (s == 'Connecting') return s
         return 'Disconnected'
